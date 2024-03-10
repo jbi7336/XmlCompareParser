@@ -1,4 +1,3 @@
-#define _CRT_SECURE_NO_WARNINGS
 #include <iostream>
 #include <string>
 #include "tinyxml2.h"
@@ -6,33 +5,46 @@
 using namespace tinyxml2;
 using namespace std;
 
-void initXmlRet(XMLDocument*);
-void Test(XMLDocument& xmlEng, XMLDocument& xmlRet);
-void LoadXml(XMLDocument& xmlEng, XMLDocument& xmlKor);
+void initXmlRet(XMLDocument*, string in);
+void LoadXml(XMLDocument& xmlEng, XMLDocument& xmlKor, string in);
 void compareAndInsert(XMLElement* rootKor, XMLElement* rootEng, XMLDocument& xmlRet);
+void InsertChild(XMLElement* eleKor, XMLElement* node, XMLDocument& xmlRet, XMLElement*& nodeChild, int kor);
+void fillBlank(string& temp);
 
-#define DEBUG 1
+int o = 0, t = 0, th = 0;
+
+#define DEBUG 0
 
 int main() {
-	int Flag = 1;
 	XMLDocument xmlEng, xmlKor, xmlRet;
-	LoadXml(xmlEng, xmlKor);
-	initXmlRet(&xmlRet);
+	string inName;
+
+	cin >> inName;
+
+	LoadXml(xmlEng, xmlKor, inName);
+	initXmlRet(&xmlRet, inName);
 
 	XMLElement* rootEng = xmlEng.RootElement();
 	XMLElement* rootKor = xmlKor.RootElement();
-	
+
 	compareAndInsert(rootKor, rootEng, xmlRet);
 
-	cout << xmlRet.RootElement()->ChildElementCount() << endl;
+	if (DEBUG) {
+		xmlRet.SaveFile("./out/Test.img.xml");
+	} else {
+		string result = "./out/TransEngToKor_" + inName + ".img.xml";
+		xmlRet.SaveFile(result.data());
+	}
 
-	DEBUG ? xmlRet.SaveFile("./out/TransEngToKor_Skill.xml") : xmlRet.SaveFile("./out/Test.img.xml");
-
+	if (DEBUG) cout << o << " " << t << " " << th << endl;
 	return 0;
 }
 
-void compareAndInsert(XMLElement* rootKor, XMLElement* rootEng, XMLDocument& xmlRet)
-{
+void sortingXML() {
+	XMLDocument xmlTemp;
+}
+
+void compareAndInsert(XMLElement* rootKor, XMLElement* rootEng, XMLDocument& xmlRet) {
 	XMLElement* node;
 	XMLElement* nodeChild;
 
@@ -46,105 +58,90 @@ void compareAndInsert(XMLElement* rootKor, XMLElement* rootEng, XMLDocument& xml
 		valueEng = stoi(eleEng->FirstAttribute()->Value());
 		valueKor = stoi(eleKor->FirstAttribute()->Value());
 
+		cout << valueEng << endl;
+
 		compareCase = valueEng - valueKor;
 		if (compareCase == 0) { // Same Word
 			xmlRet.LastChildElement()->InsertEndChild(xmlRet.NewElement("imgdir"));
 			node = xmlRet.LastChildElement()->LastChildElement();
-			node->SetAttribute("name", eleEng->FindAttribute("name")->Value());
+			node->SetAttribute("name", eleKor->FindAttribute("name")->Value());
 
-			for (XMLElement* eleChild = eleKor->FirstChildElement(); eleChild != NULL; eleChild = eleChild->NextSiblingElement()) {
-				node->InsertEndChild(xmlRet.NewElement("string"));
-				nodeChild = node->LastChildElement();
-
-				nodeChild->SetAttribute(
-					"name",
-					eleChild->FirstAttribute()->Value()
-				);
-
-				nodeChild->SetAttribute(
-					"value",
-					eleChild->FirstAttribute()->Next()->Value()
-				);
-			}
+			InsertChild(eleKor, node, xmlRet, nodeChild, 0);
 
 			eleEng = eleEng->NextSiblingElement();
 			eleKor = eleKor->NextSiblingElement();
+			DEBUG ? o = o + 1 : o = o;
 		} else if (compareCase < 0) { // ENG small than KOR
 			xmlRet.LastChildElement()->InsertEndChild(xmlRet.NewElement("imgdir"));
 			node = xmlRet.LastChildElement()->LastChildElement();
 			node->SetAttribute("name", eleEng->FindAttribute("name")->Value());
 
-			for (XMLElement* eleChild = eleEng->FirstChildElement(); eleChild != NULL; eleChild = eleChild->NextSiblingElement()) {
-				node->InsertEndChild(xmlRet.NewElement("string"));
-				nodeChild = node->LastChildElement();
-
-				nodeChild->SetAttribute(
-					"name",
-					eleChild->FirstAttribute()->Value()
-				);
-
-				nodeChild->SetAttribute(
-					"value",
-					eleChild->FirstAttribute()->Next()->Value()
-				);
-			}
+			InsertChild(eleEng, node, xmlRet, nodeChild, 0);
 
 			eleEng = eleEng->NextSiblingElement();
+			DEBUG ? t = t + 1 : t = t;
 		} else { // ENG bigger than KOR
 
 			eleKor = eleKor->NextSiblingElement();
+			DEBUG ? th = th + 1 : th = th;
 		}
 	}
 }
 
-void LoadXml(XMLDocument& xmlEng, XMLDocument& xmlKor)
-{
-	if (XML_SUCCESS == xmlEng.LoadFile("./data/Skill_eng.img.xml")) {
+void InsertChild(XMLElement* eleKor, XMLElement* node, XMLDocument& xmlRet, XMLElement*& nodeChild, int kor) {
+    string temp;
+	int flag;
+
+	for (XMLElement* eleChild = eleKor->FirstChildElement(); eleChild != NULL; eleChild = eleChild->NextSiblingElement()) {
+		node->InsertEndChild(xmlRet.NewElement("string"));
+		nodeChild = node->LastChildElement();
+
+		temp = eleChild->FirstAttribute()->Value();
+		if (&temp == NULL) {
+			nodeChild->SetAttribute("name", "");
+		} else {
+			nodeChild->SetAttribute("name", temp.data());
+		}
+
+		temp = eleChild->FirstAttribute()->Next()->Value();
+
+		if (&temp == NULL) {
+			nodeChild->SetAttribute("name", "");
+		} else {
+			nodeChild->SetAttribute("name", temp.data());
+		}
+	}
+}
+
+void fillBlank(string& temp) {
+	while (temp.length() < 100) {
+		temp.push_back(' ');
+	}
+}
+
+void LoadXml(XMLDocument& xmlEng, XMLDocument& xmlKor, string in) {
+	string eng, kor;
+
+	eng = "./data/" + in + "/eng/" + in + ".img.xml";
+	kor = "./data/" + in + "/kor/" + in + ".img.xml";
+
+	if (XML_SUCCESS == xmlEng.LoadFile(eng.data())) {
 		cout << "Success" << endl;
 	} else {
 		cout << "Fail to load" << endl;
 	}
 
-	if (XML_SUCCESS == xmlKor.LoadFile("./data./Skill_kor.img.xml")) {
+	if (XML_SUCCESS == xmlKor.LoadFile(kor.data())) {
 		cout << "Success" << endl;
 	} else {
 		cout << "Fail to load" << endl;
 	}
 }
 
-void Test(XMLDocument& xmlKor, XMLDocument& xmlRet)
-{
-	XMLElement* root = xmlKor.RootElement();
-	XMLElement* node;
-	XMLElement* nodeChild;
-
-
-	if (0 == 1) {
-		// imgdir layer cycle
-		for (XMLElement* ele = root->FirstChildElement("imgdir"); ele != NULL; ele = ele->NextSiblingElement()) {
-			xmlRet.LastChildElement()->InsertEndChild(xmlRet.NewElement("imgdir"));
-			node = xmlRet.LastChildElement()->LastChildElement();
-
-			string value = ele->FindAttribute("name")->Value();
-			node->SetAttribute("name", value.data());
-
-			// strimg layer cycle
-			for (XMLElement* eleChild = ele->FirstChildElement(); eleChild != NULL; eleChild = eleChild->NextSiblingElement()) {
-				node->InsertEndChild(xmlRet.NewElement("string"));
-				nodeChild = node->LastChildElement();
-
-				string childName = eleChild->FirstAttribute()->Value();
-				string childValue = eleChild->FirstAttribute()->Next()->Value();
-				nodeChild->SetAttribute("name", childName.data());
-				nodeChild->SetAttribute("value", childValue.data());
-			}
-		}
-	}
-}
-
-void initXmlRet(XMLDocument* xmlRet) {
+void initXmlRet(XMLDocument* xmlRet, string in) {
 	// Skill_eng.img
+	string temp = in + ".img";
 	xmlRet->InsertFirstChild(xmlRet->NewDeclaration("xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\""));
 	xmlRet->InsertEndChild(xmlRet->NewElement("imgdir"));
-	xmlRet->FirstChildElement()->SetAttribute("name", "Skill.img");
+	xmlRet->FirstChildElement()->SetAttribute("name", temp.data());
 }
